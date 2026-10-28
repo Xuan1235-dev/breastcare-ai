@@ -1,0 +1,43 @@
+{
+  "model_name": "SVM RBF",
+  "feature_names": [
+    "mean radius",
+    "mean texture",
+    "mean perimeter",
+    "mean area",
+    "mean smoothness",
+    "mean compactness",
+    "mean concavity",
+    "mean concave points",
+    "mean symmetry",
+    "mean fractal dimension",
+    "radius error",
+    "texture error",
+    "perimeter error",
+    "area error",
+    "smoothness error",
+    "compactness error",
+    "concavity error",
+    "concave points error",
+    "symmetry error",
+    "fractal dimension error",
+    "worst radius",
+    "worst texture",
+    "worst perimeter",
+    "worst area",
+    "worst smoothness",
+    "worst compactness",
+    "worst concavity",
+    "worst concave points",
+    "worst symmetry",
+    "worst fractal dimension"
+  ],
+  "threshold": 0.35,
+  "positive_class": "malignant",
+  "cv_recall": 0.9647058823529411,
+  "best_params": {
+    "clf__C": 10,
+    "clf__gamma": "scale"
+  },
+  "disclaimer": "Research/education only. Not a clinical diagnostic tool."
+}

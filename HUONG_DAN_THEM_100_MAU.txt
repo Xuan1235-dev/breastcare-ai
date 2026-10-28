@@ -1,0 +1,21 @@
+BREASTCARE AI V2.1 - THEM NUT TAO 100 MAU NGAU NHIEN
+
+1. Dung Backend va Frontend trong VS Code bang Ctrl+C.
+2. Sao chep file them_100_mau_ngau_nhien.py vao D:\breast_cancer_vscode
+3. Mo Terminal VS Code:
+   cd D:\breast_cancer_vscode
+   python .\them_100_mau_ngau_nhien.py
+4. Khoi dong Backend o Terminal 1:
+   .\.venv\Scripts\python.exe -m uvicorn backend.main:app --reload
+5. Khoi dong Frontend o Terminal 2:
+   cd D:\breast_cancer_vscode\frontend
+   npm.cmd run dev
+6. Mo http://127.0.0.1:5173 -> Du doan hang loat.
+   Bam nut 'Tao 100 mau ngau nhien'. Web se tu lay 100 mau tu dataset va du doan ngay.
+
+API: GET http://127.0.0.1:8000/api/random-batch?count=100
+Moi lan goi tao 100 mau khong trung NHAU TRONG CUNG MOT LAN lay. Hai lan khac nhau co the co mot so mau trung nhau.
+
+SAO LUU: Script tu tao *.bak_random100 cho cac file duoc sua.
+LUU Y: Script chi ho tro cau truc BreastCare AI V2.1 da cung cap truoc day. Neu src.jsx da chinh sua sau hoac co cau truc khac, no se dung va bao loi thay vi sua sai.
+Chi dung cho demo va nghien cuu, khong de chan doan y te.

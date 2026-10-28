@@ -1,0 +1,332 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+  Activity, ArrowDownToLine, ArrowLeft, ArrowRight, BarChart3, BrainCircuit, Check,
+  ChevronDown, ChevronRight, CircleAlert, CircleCheck, Clock3, ClipboardList,
+  Database, FileChartColumn, FileText, FlaskConical, HeartPulse, Info, Layers3,
+  LayoutDashboard, Menu, Microscope, RotateCcw, Search, ShieldCheck, Shuffle, SlidersHorizontal,
+  Sparkles, Stethoscope, Target, Trash2, UploadCloud, X
+} from 'lucide-react';
+import {
+  ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, LineChart, Line
+} from 'recharts';
+import './style.css';
+
+const API = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+const DISCLAIMER = 'Chỉ phục vụ học tập và nghiên cứu, không dùng để chẩn đoán hoặc quyết định điều trị.';
+const PAGES = [
+  { id: 'dashboard', name: 'Tổng quan', icon: LayoutDashboard },
+  { id: 'dataset', name: 'Khám phá dữ liệu', icon: Database },
+  { id: 'models', name: 'So sánh mô hình', icon: BrainCircuit },
+  { id: 'predict', name: 'Dự đoán cá nhân', icon: Microscope },
+  { id: 'batch', name: 'Dự đoán hàng loạt', icon: Layers3 },
+  { id: 'history', name: 'Lịch sử phiên', icon: Clock3 },
+  { id: 'about', name: 'Giới thiệu đề tài', icon: FileText },
+];
+const formatPct = (n, digits = 1) => n == null || !Number.isFinite(Number(n)) ? '—' : `${(Number(n) * 100).toFixed(digits)}%`;
+const formatNum = n => n == null || !Number.isFinite(Number(n)) ? '—' : Number(n).toLocaleString('vi-VN', { maximumFractionDigits: Math.abs(Number(n)) < 0.01 ? 7 : Math.abs(Number(n)) < 1 ? 5 : 3 });
+const safeName = x => String(x).replace(/[^a-zA-Z0-9_\-.]/g, '_');
+const groupLabel = name => name.startsWith('mean ') ? 'Giá trị trung bình' : name.endsWith(' error') ? 'Sai số chuẩn' : 'Giá trị lớn nhất';
+const shortFeature = name => name.replace(/^mean /, '').replace(/^worst /, '').replace(/ error$/, '');
+const featureGroups = ['Giá trị trung bình', 'Sai số chuẩn', 'Giá trị lớn nhất'];
+const downloadText = (text, filename, type = 'text/csv;charset=utf-8') => {
+  const url = URL.createObjectURL(new Blob(['\uFEFF', text], { type }));
+  const link = document.createElement('a'); link.href = url; link.download = filename; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 400);
+};
+const csvValue = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const csvLine = arr => arr.map(csvValue).join(',');
+async function api(path, options = undefined) {
+  const response = await fetch(`${API}${path}`, options);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(typeof body.detail === 'string' ? body.detail : `API trả về lỗi ${response.status}`);
+  }
+  return response.json();
+}
+function IconButton({ icon: Icon, children, className = '', ...props }) {
+  return <button className={`btn ${className}`} {...props}><Icon size={17} />{children}</button>;
+}
+function SectionTitle({ eyebrow, title, description, right }) {
+  return <div className="section-title"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="subtitle">{description}</p></div>{right && <div className="section-action">{right}</div>}</div>;
+}
+function StatCard({ icon: Icon, label, value, sub, className = '' }) {
+  return <div className={`stat-card ${className}`}><div className="stat-icon"><Icon size={20}/></div><div className="stat-label">{label}</div><div className="stat-value">{value}</div><div className="stat-sub">{sub}</div></div>;
+}
+function Card({ title, subtitle, action, children, className = '' }) {
+  return <section className={`card ${className}`}><div className="card-head"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>{action && <div className="card-action">{action}</div>}</div>{children}</section>;
+}
+function Status({ online }) { return <span className={`status ${online ? 'online' : 'offline'}`}><span className="status-dot"/>{online ? 'API đang hoạt động' : 'API chưa kết nối'}</span>; }
+function Empty({ icon: Icon = Database, title, text, action }) {
+  return <div className="empty-state"><span className="empty-icon"><Icon size={26}/></span><h3>{title}</h3><p>{text}</p>{action}</div>;
+}
+function Footer() { return <footer className="app-footer"><ShieldCheck size={16}/>{DISCLAIMER}<span>BreastCare AI · Dự án môn Học máy</span></footer>; }
+
+function Dashboard({ info, dataset, results, onNavigate }) {
+  const selected = results?.models?.find(m => m.Model === results?.selected);
+  const pie = [{ name: 'Lành tính', value: dataset?.benign || 0 }, { name: 'Ác tính', value: dataset?.malignant || 0 }];
+  const ranking = (results?.models || []).map(x => ({name:x.Model.replace('Logistic Regression','Logistic Reg.'), recall: Math.round(x.Recall*1000)/10, auc: Math.round(x.ROC_AUC*1000)/10}));
+  return <>
+    <SectionTitle eyebrow="BẢNG ĐIỀU KHIỂN / OVERVIEW" title="Tổng quan hệ thống" description="Theo dõi dữ liệu, kết quả thực nghiệm và hiệu quả các thuật toán học máy." right={<IconButton icon={ArrowRight} className="btn-primary" onClick={()=>onNavigate('predict')}>Thử dự đoán</IconButton>}/>
+    <div className="hero"><div className="hero-content"><div className="hero-chip"><Sparkles size={15}/> HỆ THỐNG HỖ TRỢ NGHIÊN CỨU</div><h2>Hiểu dữ liệu tốt hơn.<br/><span>Phân tích chính xác hơn.</span></h2><p>Khám phá 30 đặc trưng của nhân tế bào, so sánh 4 thuật toán và thử nghiệm mô hình trực tiếp trên dữ liệu Wisconsin.</p><div className="hero-buttons"><button onClick={()=>onNavigate('predict')} className="hero-main">Bắt đầu dự đoán <ArrowRight size={17}/></button><button onClick={()=>onNavigate('models')} className="hero-secondary">Xem kết quả mô hình</button></div></div><div className="hero-visual" aria-hidden="true"><div className="visual-orbit ring-one"/><div className="visual-orbit ring-two"/><div className="visual-orbit ring-three"/><div className="visual-cell"><Activity size={60} strokeWidth={1.3}/></div><div className="visual-tag top">30 đặc trưng</div><div className="visual-tag bottom">ML · Analysis</div></div></div>
+    <div className="stat-grid"><StatCard icon={Database} label="Tổng mẫu dữ liệu" value={formatNum(dataset?.total)} sub="Wisconsin Diagnostic"/><StatCard icon={Layers3} label="Đặc trưng đầu vào" value={dataset?.feature_count ?? '—'} sub="3 nhóm đặc trưng"/><StatCard icon={BrainCircuit} label="Thuật toán so sánh" value={results?.models?.length ?? '—'} sub="GridSearchCV · 5-fold"/><StatCard icon={Target} label="Recall mô hình chọn (CV)" value={formatPct(info?.cv_recall)} sub={info?.model || 'Đang tải...'} /></div>
+    <div className="layout-two"><Card title="Phân bố dữ liệu" subtitle="Tỷ lệ mẫu lành tính và ác tính trong dataset" action={<span className="mini-label">569 mẫu gốc</span>}><div className="pie-wrap"><div className="pie-chart"><ResponsiveContainer width="100%" height={240}><PieChart><Pie data={pie} dataKey="value" innerRadius={68} outerRadius={97} stroke="none" paddingAngle={3}><Cell fill="#20b89a"/><Cell fill="#f28e76"/></Pie><Tooltip formatter={value=>`${value} mẫu`}/></PieChart></ResponsiveContainer><div className="pie-total"><strong>{dataset?.total ?? '—'}</strong><span>mẫu</span></div></div><div className="legend-stack"><div><i style={{background:'#20b89a'}}/><span>Lành tính</span><strong>{dataset?.benign ?? '—'}</strong></div><div><i style={{background:'#f28e76'}}/><span>Ác tính</span><strong>{dataset?.malignant ?? '—'}</strong></div></div></div></Card>
+    <Card title="Hiệu suất các thuật toán" subtitle="Recall và ROC-AUC trên tập test, ở ngưỡng mặc định 0.5" action={<button className="inline-link" onClick={()=>onNavigate('models')}>Chi tiết <ArrowRight size={15}/></button>}><div className="chart-h" role="img" aria-label="Biểu đồ hiệu suất 4 mô hình"><ResponsiveContainer width="100%" height="100%"><BarChart data={ranking} layout="vertical" margin={{left:8,right:14,top:8,bottom:4}} barGap={3}><CartesianGrid stroke="#eef1f6" horizontal={false}/><XAxis type="number" domain={[0,100]} tickLine={false} axisLine={false} tick={{fontSize:11,fill:'#738198'}} unit="%"/><YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tick={{fontSize:11,fill:'#58657d'}} width={98}/><Tooltip formatter={v=>`${v}%`}/><Legend iconType="circle" wrapperStyle={{fontSize:12}}/><Bar dataKey="recall" name="Recall" fill="#6258db" radius={[0,5,5,0]} barSize={10}/><Bar dataKey="auc" name="ROC-AUC" fill="#36bea7" radius={[0,5,5,0]} barSize={10}/></BarChart></ResponsiveContainer></div></Card></div>
+    <div className="layout-two"><Card title="Mô hình được lựa chọn" subtitle="Lựa chọn dựa trên Recall cross-validation"><div className="selected-model"><div className="selected-symbol"><BrainCircuit size={31}/></div><div><p className="eyebrow">BEST MODEL</p><h3>{results?.selected || 'Đang tải'}</h3><p>Ngưỡng dự đoán: <strong>{formatPct(results?.threshold, 0)}</strong></p></div></div><div className="model-bits"><div><span>CV Recall</span><strong>{formatPct(info?.cv_recall)}</strong></div><div><span>Test Accuracy (ngưỡng 0.5)</span><strong>{formatPct(selected?.Accuracy)}</strong></div><div><span>Test ROC-AUC</span><strong>{formatPct(selected?.ROC_AUC)}</strong></div></div></Card><Card title="Quy trình Machine Learning" subtitle="Các bước đã thực hiện trong dự án"><div className="steps">{[['01','Thu thập và phân tích','Dataset 569 mẫu, 30 đặc trưng'],['02','Tiền xử lý dữ liệu','Chia train/test và StandardScaler'],['03','Huấn luyện, tối ưu','Pipeline và GridSearchCV'],['04','Đánh giá và triển khai','Recall, F1, AUC, FastAPI']].map(row=><div className="step" key={row[0]}><span className="step-num">{row[0]}</span><div><strong>{row[1]}</strong><p>{row[2]}</p></div></div>)}</div></Card></div>
+  </>;
+}
+function DatasetPage({ dataset, info, distribution, distributionError, currentFeature, setCurrentFeature }) {
+  const classes = [{name:'Lành tính',count:dataset?.benign||0,fill:'#20b89a'},{name:'Ác tính',count:dataset?.malignant||0,fill:'#f28e76'}];
+  const [search,setSearch] = useState('');
+  const filtered = (dataset?.features||[]).filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+  return <><SectionTitle eyebrow="DỮ LIỆU / EXPLORATION" title="Khám phá bộ dữ liệu" description="Tìm hiểu phân phối nhãn, thống kê đặc trưng và sự khác biệt giữa hai nhóm mẫu."/>
+    <div className="stat-grid"><StatCard icon={Database} label="Tổng số mẫu" value={formatNum(dataset?.total)} sub="Bộ dữ liệu có nhãn"/><StatCard icon={CircleCheck} label="Mẫu lành tính" value={formatNum(dataset?.benign)} sub={`${dataset?.total?((dataset.benign/dataset.total)*100).toFixed(1):'—'}% dữ liệu`}/><StatCard icon={Activity} label="Mẫu ác tính" value={formatNum(dataset?.malignant)} sub={`${dataset?.total?((dataset.malignant/dataset.total)*100).toFixed(1):'—'}% dữ liệu`}/><StatCard icon={ShieldCheck} label="Giá trị bị thiếu" value={dataset?.missing_values ?? '—'} sub="Kiểm tra toàn bộ bảng"/></div>
+    <div className="layout-two"><Card title="Phân bố nhãn" subtitle="Hai lớp mục tiêu: benign và malignant"><div className="simple-bar"><ResponsiveContainer width="100%" height={260}><BarChart data={classes} margin={{top:12,right:8,bottom:0,left:0}}><CartesianGrid stroke="#eef1f6" vertical={false}/><XAxis dataKey="name" tickLine={false} axisLine={false}/><YAxis tickLine={false} axisLine={false}/><Tooltip formatter={v=>`${v} mẫu`}/><Bar dataKey="count" name="Số lượng" radius={[8,8,0,0]} maxBarSize={110}>{classes.map(x=><Cell key={x.name} fill={x.fill}/>)}</Bar></BarChart></ResponsiveContainer></div></Card>
+    <Card title="Phân phối một đặc trưng" subtitle="Đếm số mẫu theo khoảng giá trị và loại khối u" action={<select className="compact-select" value={currentFeature} onChange={e=>setCurrentFeature(e.target.value)}>{(info?.features||[]).map(f=><option key={f} value={f}>{f}</option>)}</select>}>
+      {distributionError && <div className="notice error">{distributionError}</div>}
+      <div className="chart-h chart-tall"><ResponsiveContainer width="100%" height="100%"><BarChart data={distribution?.bins||[]} margin={{left:0,right:8,top:10,bottom:8}}><CartesianGrid stroke="#eef1f6" vertical={false}/><XAxis dataKey="range" tickLine={false} axisLine={false} tick={{fontSize:9}} interval={2} angle={-25} textAnchor="end" height={55}/><YAxis tickLine={false} axisLine={false} tick={{fontSize:11}}/><Tooltip/><Legend wrapperStyle={{fontSize:12}}/><Bar dataKey="benign" name="Lành tính" stackId="a" fill="#20b89a"/><Bar dataKey="malignant" name="Ác tính" stackId="a" fill="#f28e76" radius={[3,3,0,0]}/></BarChart></ResponsiveContainer></div>
+    </Card></div>
+    <Card title="Thống kê 30 đặc trưng" subtitle="Bảng min, max và giá trị trung bình của từng đặc trưng" action={<div className="search-box"><Search size={16}/><input placeholder="Tìm đặc trưng..." value={search} onChange={e=>setSearch(e.target.value)}/></div>}>
+      <div className="table-scroll"><table><thead><tr><th>Đặc trưng</th><th>Min</th><th>Max</th><th>Trung bình</th><th>TB lành tính</th><th>TB ác tính</th></tr></thead><tbody>{filtered.map(f=><tr key={f.name}><td className="strong-td">{f.name}</td><td>{formatNum(f.min)}</td><td>{formatNum(f.max)}</td><td>{formatNum(f.mean)}</td><td>{formatNum(f.benign_mean)}</td><td>{formatNum(f.malignant_mean)}</td></tr>)}</tbody></table></div>
+    </Card>
+    <Card title="Xem trước dữ liệu" subtitle="8 dòng mẫu minh họa được lấy từ tập dữ liệu nghiên cứu"><div className="table-scroll"><table><thead><tr><th>ID</th><th>Phân loại thực tế</th><th>Mean radius</th><th>Mean texture</th><th>Mean area</th></tr></thead><tbody>{(dataset?.preview||[]).map(r=><tr key={r.id}><td>#{r.id}</td><td><span className={`class-chip ${r.class==='Ác tính'?'risk':''}`}>{r.class}</span></td><td>{r.radius}</td><td>{r.texture}</td><td>{r.area}</td></tr>)}</tbody></table></div></Card>
+  </>;
+}
+function ModelsPage({ results, info }) {
+  const [view,setView] = useState('Recall');
+  const [chart,setChart] = useState('roc_curve.png');
+  const cols = [{id:'Recall',label:'Recall'},{id:'F1',label:'F1-score'},{id:'ROC_AUC',label:'ROC-AUC'},{id:'Accuracy',label:'Accuracy'}];
+  const data = (results?.models||[]).map(m=>({ name:m.Model, score:+(m[view]*100).toFixed(2) }));
+  const chartOptions = [{id:'roc_curve.png',name:'ROC Curve'},{id:'confusion_matrix.png',name:'Confusion Matrix'},{id:'model_comparison.png',name:'Model Comparison'},{id:'feature_importance.png',name:'Feature Importance'}];
+  return <><SectionTitle eyebrow="THỰC NGHIỆM / PERFORMANCE" title="Đánh giá và so sánh mô hình" description="Kết quả huấn luyện thực tế, tối ưu siêu tham số và phân tích từng thuật toán."/>
+    <div className="insight-banner"><Target size={22}/><div><strong>{results?.selected||'Mô hình đang tải'} — mô hình được lựa chọn</strong><p>Lựa chọn theo Recall trên tập train qua cross-validation, không dựa vào tập test. Các chỉ số bảng dưới dùng ngưỡng mặc định 0.5; mô hình triển khai dùng ngưỡng {formatPct(results?.threshold,0)}.</p></div></div>
+    <div className="layout-two"><Card title="So sánh chỉ số" subtitle="Chọn một chỉ số để xem biểu đồ" action={<select className="compact-select" value={view} onChange={e=>setView(e.target.value)}>{cols.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select>}><div className="chart-h"><ResponsiveContainer width="100%" height="100%"><BarChart data={data} margin={{left:0,right:4,top:15,bottom:30}}><CartesianGrid stroke="#eef1f6" vertical={false}/><XAxis dataKey="name" tick={{fontSize:10,fill:'#58657d'}} height={56} angle={-15} textAnchor="end" interval={0} tickLine={false} axisLine={false}/><YAxis domain={[0,100]} tickLine={false} axisLine={false} tick={{fontSize:11}} unit="%"/><Tooltip formatter={v=>`${v}%`}/><Bar dataKey="score" fill="#6157d5" radius={[6,6,0,0]} maxBarSize={65}/></BarChart></ResponsiveContainer></div></Card>
+    <Card title="Chi tiết mô hình được chọn" subtitle="Các thông tin đã lưu trong metadata.json"><div className="selected-model"><div className="selected-symbol"><BrainCircuit size={31}/></div><div><p className="eyebrow">SELECTED MODEL</p><h3>{results?.selected||'Đang tải...'}</h3><p>Ngưỡng dự đoán: <strong>{formatPct(results?.threshold, 0)}</strong></p></div></div><div className="model-bits"><div><span>Cross-validation Recall</span><strong>{formatPct(results?.cv_recall,2)}</strong></div><div><span>GridSearchCV</span><strong>5 folds</strong></div></div><div className="params"><h4>Siêu tham số tốt nhất</h4><pre>{JSON.stringify(info?.best_params||{},null,2)}</pre></div></Card></div>
+    <Card title="Bảng so sánh chi tiết" subtitle="Các chỉ số tính trên tập test ở ngưỡng mặc định 0.5"><div className="table-scroll"><table><thead><tr><th>Thuật toán</th><th>CV Recall</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>ROC-AUC</th><th>FN</th></tr></thead><tbody>{(results?.models||[]).map(m=><tr key={m.Model} className={m.Model===results.selected?'highlight-row':''}><td className="strong-td">{m.Model}{m.Model===results.selected&&<span className="best-tag">Đã chọn</span>}</td><td>{formatPct(m.CV_Recall,2)}</td><td>{formatPct(m.Accuracy,2)}</td><td>{formatPct(m.Precision,2)}</td><td>{formatPct(m.Recall,2)}</td><td>{formatPct(m.F1,2)}</td><td>{formatPct(m.ROC_AUC,2)}</td><td className="fn-cell">{m.False_Negatives}</td></tr>)}</tbody></table></div></Card>
+    <Card title="Biểu đồ thực nghiệm" subtitle="Ảnh được tạo trực tiếp khi chạy python -m ml.train" action={<div className="chart-actions"><select className="compact-select" value={chart} onChange={e=>setChart(e.target.value)}>{chartOptions.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select><a className="btn btn-soft" href={`${API}/charts/${safeName(chart)}`} target="_blank" rel="noreferrer"><ArrowDownToLine size={16}/> Xem / tải</a></div>}><div className="result-image-frame"><img key={chart} src={`${API}/charts/${safeName(chart)}`} alt={chartOptions.find(x=>x.id===chart)?.name||'Biểu đồ đánh giá'}/></div><p className="chart-footnote">Lưu ý: SVM không cung cấp feature importance trực tiếp; hình minh họa dự án có thể dùng permutation importance. Không suy diễn thành lời giải thích lâm sàng.</p></Card>
+    <div className="notice"><Info size={18}/> Trong bài toán này, False Negative là mẫu ác tính bị dự đoán nhầm thành lành tính. Vì vậy Recall của lớp ác tính là chỉ số cần chú trọng.</div>
+  </>;
+}
+// Each slider uses the min/max actually observed in the Wisconsin dataset.
+// Numeric boxes remain editable for precise values, including out-of-range research inputs.
+function FeatureSlider({ name, index, value, stat, onUpdate }) {
+  const lo = Number(stat?.min);
+  const hi = Number(stat?.max);
+  const mean = Number(stat?.mean);
+  const validRange = Number.isFinite(lo) && Number.isFinite(hi) && hi > lo;
+  const numericValue = value === '' ? NaN : Number(value);
+  const filled = value !== '' && Number.isFinite(numericValue);
+  const sliderValue = filled ? Math.min(hi, Math.max(lo, numericValue)) : mean;
+  const step = validRange ? Number(((hi - lo) / 1000).toPrecision(6)) : 0.01;
+  const progress = validRange && Number.isFinite(sliderValue) ? (sliderValue - lo) / (hi - lo) * 100 : 0;
+  const outOfRange = validRange && filled && (numericValue < lo || numericValue > hi);
+  return <div className={`slider-field ${outOfRange ? 'slider-field-outside' : ''}`}>
+    <div className="slider-title-row"><div><span className="field-name">{shortFeature(name)}</span><span className="field-order">Đặc trưng #{index+1}</span></div><span className="slider-current">{filled ? formatNum(numericValue) : 'Chưa có giá trị'}</span></div>
+    <input type="range" className="feature-range" aria-label={`Điều chỉnh ${name}`} min={validRange ? lo : 0} max={validRange ? hi : 1} step={step} disabled={!validRange} value={validRange ? sliderValue : 0} style={{'--fill': `${progress}%`}} onChange={e=>onUpdate(index,e.target.value)}/>
+    <div className="slider-scale"><span>Min: {formatNum(lo)}</span><span>Max: {formatNum(hi)}</span></div>
+    <div className="slider-manual"><label htmlFor={`feature-number-${index}`}>Nhập giá trị chính xác</label><input id={`feature-number-${index}`} type="number" step="any" placeholder="Giá trị" value={value} onChange={e=>onUpdate(index,e.target.value)}/></div>
+    {outOfRange && <p className="slider-warning">Ngoài phạm vi từng xuất hiện trong dataset; bạn vẫn có thể thử nghiệm nhưng cần thận trọng khi diễn giải.</p>}
+  </div>;
+}
+function PredictPage({ info, examples, dataset, onRecord }) {
+  const [values,setValues] = useState(Array(30).fill(''));
+  const [active,setActive] = useState('Giá trị trung bình');
+  const [search,setSearch] = useState('');
+  const [busy,setBusy] = useState(false);
+  const [sampleBusy,setSampleBusy] = useState(false);
+  const [lastRandomId,setLastRandomId] = useState(null);
+  const [result,setResult] = useState(null);
+  const [err,setErr] = useState('');
+  const [source,setSource] = useState('Nhập thủ công');
+  const features = info?.features || [];
+  const stats = useMemo(()=>new Map((dataset?.features || []).map(x=>[x.name,x])), [dataset]);
+  // Initially populate slider positions with the 30 dataset means, never with made-up ranges.
+  // These 30 means form a synthetic demo input, NOT an actual patient/sample.
+  useEffect(()=>{
+    if(features.length===30 && features.every(f=>stats.has(f))){
+      setValues(prev=>prev.every(v=>v==='') ? features.map(f=>String(stats.get(f).mean)) : prev);
+      setSource(prev=>prev==='Nhập thủ công' ? 'Giá trị trung bình (mẫu tổng hợp)' : prev);
+    }
+  },[features,stats]);
+  const filled = values.filter(v=>String(v).trim()!=='' && Number.isFinite(Number(v))).length;
+  const formGroups = useMemo(()=>featureGroups.map(name=>({name, fields:features.map((f,i)=>({name:f,i})).filter(f=>groupLabel(f.name)===name)})),[features]);
+  const current = formGroups.find(x=>x.name===active)?.fields.filter(f=>f.name.toLowerCase().includes(search.toLowerCase())) || [];
+  const update = (i,value)=>{
+    setValues(v=>v.map((x,j)=>i===j ? value : x));setResult(null);setErr('');
+    setSource(prev=>prev === 'Nhập thủ công' || prev.endsWith('(đã chỉnh)') ? prev : `${prev} (đã chỉnh)`);
+  };
+  const loadExample = type => {
+    const v=examples?.[type];
+    if(!v){setErr('Không tải được mẫu; hãy kiểm tra Backend.');return;}
+    setValues(v.map(String));setErr('');setResult(null);setLastRandomId(null);
+    setSource(type==='benign' ? 'Mẫu minh họa lành tính' : 'Mẫu minh họa ác tính');
+  };
+  const loadRandom = async()=>{
+    setSampleBusy(true);setErr('');
+    try {
+      const query = lastRandomId ? `?exclude_id=${lastRandomId}` : '';
+      const sample = await api(`/api/random-sample${query}`);
+      if(!Array.isArray(sample.values) || sample.values.length!==30) throw new Error('API trả về mẫu không hợp lệ.');
+      setValues(sample.values.map(String));setSource(`Mẫu ngẫu nhiên #${sample.sample_id}`);
+      setResult(null);setLastRandomId(sample.sample_id);
+    } catch(e) {setErr(`Không thể lấy mẫu ngẫu nhiên: ${e.message}`);}
+    finally {setSampleBusy(false);}
+  };
+  const loadMean = ()=>{
+    if(features.length!==30 || features.some(f=>!stats.has(f))) {setErr('Chưa tải xong thống kê dataset.');return;}
+    setValues(features.map(f=>String(stats.get(f).mean)));
+    setSource('Giá trị trung bình (mẫu tổng hợp)');setLastRandomId(null);setResult(null);setErr('');
+  };
+  const clear = ()=>{setValues(Array(30).fill(''));setResult(null);setErr('');setSource('Nhập thủ công');setLastRandomId(null)};
+  const predict = async()=>{
+    setErr('');setResult(null);
+    const arr=values.map(Number);
+    if(values.some(v=>String(v).trim()==='') || arr.some(v=>!Number.isFinite(v))){setErr('Vui lòng nhập đủ 30 đặc trưng bằng các số hợp lệ. Dùng Lấy mẫu ngẫu nhiên để điền nhanh.');return;}
+    setBusy(true);
+    try {const data=await api('/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({values:arr})});setResult(data);onRecord({time:new Date().toLocaleString('vi-VN'),type:'Cá nhân',source,label:data.prediction,probability:data.malignant_probability});}
+    catch(e){setErr(e.message||'Không thể kết nối tới API');}finally{setBusy(false);}
+  };
+  const exportResult = ()=>{if(!result)return;downloadText([csvLine(['Nguồn mẫu','Kết quả','Xác suất ác tính','Ngưỡng']),csvLine([source,result.prediction,result.malignant_probability,result.threshold])].join('\r\n'),'breastcare_prediction.csv');};
+  return <><SectionTitle eyebrow="AI PREDICTION / INTERACTIVE SLIDERS" title="Dự đoán từ 30 đặc trưng" description="Kéo thanh trượt hoặc nhập số chính xác. Có thể lấy bất kỳ mẫu ngẫu nhiên nào từ bộ dữ liệu Wisconsin." right={<span className="badge-neutral"><ShieldCheck size={16}/> Không dùng cho chẩn đoán</span>}/>
+    <div className="predict-grid"><div className="predict-main">
+      <div className="notice-blue sample-picker"><Sparkles size={20}/><div><strong>Chọn dữ liệu mẫu để thử mô hình</strong><p>Nhấn “Lấy mẫu ngẫu nhiên” để chọn một bản ghi trong 569 mẫu thật. Không tiết lộ nhãn thật trước khi dự đoán để tránh gợi ý kết quả.</p>
+        <div className="example-buttons">
+          <IconButton icon={Shuffle} className="btn-primary" disabled={sampleBusy} onClick={loadRandom}>{sampleBusy?'Đang lấy mẫu...':'Lấy mẫu ngẫu nhiên'}</IconButton>
+          <IconButton icon={CircleCheck} className="btn-mint" onClick={()=>loadExample('benign')}>Mẫu lành tính</IconButton>
+          <IconButton icon={Activity} className="btn-peach" onClick={()=>loadExample('malignant')}>Mẫu ác tính</IconButton>
+          <IconButton icon={RotateCcw} className="btn-soft" onClick={loadMean}>Đặt về giá trị TB</IconButton>
+        </div>
+        <div className="loaded-sample"><span className="sample-status-dot"/> Nguồn hiện tại: <strong>{source}</strong></div>
+      </div></div>
+      <Card title="Điều chỉnh thông số bằng thanh trượt" subtitle="Thanh trượt lấy giới hạn Min – Max từ dataset; ô số giúp nhập chính xác từng giá trị." action={<button className="inline-link" onClick={clear}><RotateCcw size={15}/> Xóa dữ liệu</button>}>
+        <div className="form-progress"><div><strong>{filled}/30</strong> đặc trưng đã điền</div><span>{Math.round(filled/30*100)}%</span></div><div className="progress-bg"><span style={{width:`${filled/30*100}%`}}/></div>
+        <div className="form-tabs">{formGroups.map((g,i)=><button key={g.name} className={active===g.name?'active':''} onClick={()=>{setActive(g.name);setSearch('')}}><span>0{i+1}</span>{g.name}</button>)}</div>
+        <div className="form-instructions"><span>Nhóm: <strong>{active}</strong> · Kéo thanh trượt để thay đổi thông số</span><div className="search-box"><Search size={15}/><input value={search} placeholder="Tìm trường..." onChange={e=>setSearch(e.target.value)}/></div></div>
+        <div className="fields-grid sliders-grid">{current.map(({name,i})=><FeatureSlider key={name} name={name} index={i} stat={stats.get(name)} value={values[i]} onUpdate={update}/>)}</div>
+        {current.length===0 && <p className="muted">Không tìm thấy đặc trưng.</p>}
+        <div className="slider-explain"><Info size={16}/><span>Giới hạn thanh trượt phản ánh khoảng giá trị quan sát được trong 569 mẫu, không phải ngưỡng y khoa. “Giá trị TB” là 30 trung bình ghép lại, không phải một mẫu thật.</span></div>
+        <div className="form-bottom"><button disabled={busy||sampleBusy} className="btn btn-primary btn-large" onClick={predict}><BrainCircuit size={18}/>{busy?'Đang phân tích...':'Phân tích & dự đoán'}<ArrowRight size={17}/></button><span>30 đặc trưng · Mô hình {info?.model||'đang tải'}</span></div>{err&&<div className="notice error"><CircleAlert size={17}/>{err}</div>}
+      </Card></div>
+      <aside className="predict-side"><Card title="Kết quả mô hình" subtitle="Dữ liệu được xử lý bởi backend FastAPI" className="result-panel">{!result?<Empty icon={BrainCircuit} title="Chưa có kết quả" text="Kéo thanh trượt, lấy mẫu ngẫu nhiên hoặc nhập dữ liệu rồi nhấn Phân tích & dự đoán."/>:<div className="prediction-result"><div className={`result-icon ${result.prediction==='Ác tính'?'danger':'ok'}`}>{result.prediction==='Ác tính'?<Activity size={30}/>:<CircleCheck size={30}/>}</div><p className="result-small">KẾT QUẢ PHÂN LOẠI</p><h2 className={result.prediction==='Ác tính'?'text-risk':'text-ok'}>{result.prediction}</h2><p className="result-small">Xác suất ước lượng cho lớp ác tính</p><strong className="big-prob">{formatPct(result.malignant_probability,2)}</strong><div className="risk-meter"><div style={{width:formatPct(result.malignant_probability),background:result.prediction==='Ác tính'?'#ec8871':'#20b89a'}}/></div><div className="meter-label"><span>0%</span><span>Ngưỡng {formatPct(result.threshold,0)}</span><span>100%</span></div><div className="result-note"><Info size={17}/> Xác suất của mô hình, không phải xác suất được hiệu chuẩn để kết luận y khoa.</div><IconButton icon={ArrowDownToLine} className="btn-soft btn-wide" onClick={exportResult}>Xuất kết quả CSV</IconButton></div>}</Card><div className="quick-note"><FlaskConical size={20}/><div><strong>Thông tin mô hình</strong><p>{info?.model||'—'}</p><span>CV Recall: {formatPct(info?.cv_recall)} · Ngưỡng: {formatPct(info?.threshold,0)}</span></div></div></aside>
+    </div>
+  </>;
+}
+function BatchPage({ info, examples, onRecord }) {
+  const [rows,setRows] = useState([]),[fileName,setFileName]=useState(''),[err,setErr]=useState(''),[working,setWorking]=useState(false),[results,setResults]=useState([]),[randomBusy,setRandomBusy]=useState(false);
+  const features=info?.features||[];
+  const template=()=>{if(features.length!==30)return; const data=[csvLine(features),...['benign','malignant'].filter(x=>examples?.[x]).map(x=>csvLine(examples[x]))];downloadText(data.join('\r\n'),'breastcare_template.csv');};
+  async function loadFile(event) {
+    const file=event.target.files?.[0];event.target.value='';if(!file)return;
+    setErr('');setResults([]);setFileName(file.name);
+    try {
+      if(file.size > 500_000)throw new Error('Chỉ chấp nhận file CSV dung lượng tối đa 500 KB.');
+      const text=(await file.text()).replace(/^\uFEFF/,'').trim();
+      const lines=text.split(/\r?\n/).filter(Boolean).map(x=>x.replace(/\r$/,''));
+      if(lines.length<2)throw new Error('CSV phải có dòng tiêu đề và ít nhất 1 mẫu.');
+      const head=lines[0].split(',').map(x=>x.trim().replace(/^"|"$/g,''));
+      if(!features.every(f=>head.includes(f)))throw new Error('CSV cần đủ tiêu đề của 30 đặc trưng, đúng như file mẫu.');
+      if(lines.length-1>100)throw new Error('Mỗi lần chỉ được nhập tối đa 100 mẫu.');
+      const indexes=features.map(f=>head.indexOf(f));
+      const values=lines.slice(1).map((line,i)=>{const cells=line.split(',').map(c=>c.trim().replace(/^"|"$/g,''));const vals=indexes.map(j=>cells[j]);if(vals.some(v=>v==null||v==='')||vals.some(v=>!Number.isFinite(Number(v))))throw new Error(`Dòng ${i+2} có dữ liệu không hợp lệ.`);return vals.map(Number);});
+      setRows(values);
+    } catch(e){setRows([]);setErr(e.message);}
+  }
+  async function predictBatch(inputRows=rows, sourceName=fileName){
+    if(!inputRows.length)return;
+    setWorking(true);setErr('');
+    try {
+      const data=await api('/api/predict-batch', {
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({rows:inputRows})
+      });
+      setResults(data.items);
+      onRecord({time:new Date().toLocaleString('vi-VN'),type:'Hàng loạt',source:sourceName,
+        label:`${data.items.length} mẫu`,probability:null});
+    } catch(e) {setErr(e.message);}
+    finally {setWorking(false);}
+  }
+  async function generateRandomBatch(){
+    if(working || randomBusy)return;
+    setRandomBusy(true);setErr('');setResults([]);
+    try {
+      const data=await api('/api/random-batch?count=100');
+      if(!Array.isArray(data.rows) || data.rows.length!==100 ||
+         data.rows.some(row=>!Array.isArray(row)||row.length!==30)) {
+        throw new Error('API không trả về đúng 100 mẫu gồm 30 đặc trưng.');
+      }
+      const name='100 mẫu ngẫu nhiên từ WDBC (569 mẫu)';
+      setRows(data.rows);setFileName(name);
+      // Send the newly fetched rows directly; React state is asynchronous.
+      await predictBatch(data.rows, name);
+    } catch(e) {setErr(`Không thể tạo mẫu ngẫu nhiên: ${e.message}`);}
+    finally {setRandomBusy(false);}
+  }
+  const save=()=>{if(!results.length)return;downloadText([csvLine(['STT',...features,'Phân loại dự đoán','Xác suất ác tính','Ngưỡng']),...rows.map((row,i)=>csvLine([i+1,...row,results[i].prediction,results[i].malignant_probability,results[i].threshold]))].join('\r\n'),'breastcare_batch_results.csv');};
+  const nRisk=results.filter(x=>x.prediction==='Ác tính').length;
+  return <><SectionTitle eyebrow="BATCH INFERENCE / CSV" title="Dự đoán hàng loạt" description="Tải lên CSV gồm 30 đặc trưng để dự đoán tối đa 100 mẫu cùng lúc. Không gửi dữ liệu nhạy cảm hoặc thông tin bệnh nhân." right={<IconButton icon={ArrowDownToLine} onClick={template}>Tải CSV mẫu</IconButton>}/>
+    <div className="layout-two batch-layout"><Card title="Nhập bộ dữ liệu" subtitle="Có thể tạo ngay 100 mẫu ngẫu nhiên hoặc tải lên tệp CSV">
+      <div className="random100-panel">
+        <div><strong><Shuffle size={18}/> Mẫu ngẫu nhiên từ dữ liệu WDBC</strong>
+        <p>Chọn 100/569 mẫu thực tế, không trùng trong một lần lấy. Tự điền và dự đoán, không cần tệp CSV.</p></div>
+        <button className="btn btn-primary" disabled={working||randomBusy} onClick={generateRandomBatch}>
+          <Shuffle size={17}/>{working||randomBusy?'Đang tạo và dự đoán...':'Tạo 100 mẫu ngẫu nhiên'}
+        </button>
+      </div>
+      <label className="upload-zone"><UploadCloud size={38}/><strong>{fileName||'Chọn tệp CSV để tải lên'}</strong><span>Nhấn để chọn file từ máy tính · Tối đa 100 hàng</span><input type="file" accept=".csv,text/csv" onChange={loadFile}/></label><div className="batch-help"><span><CircleCheck size={17}/> File có header đúng theo mẫu</span><span><CircleCheck size={17}/> Không cần cột nhãn malignant</span><span><CircleCheck size={17}/> Giới hạn 100 mẫu mỗi lần</span></div>{err&&<div className="notice error"><CircleAlert size={16}/>{err}</div>}<div className="batch-actions"><button className="btn btn-primary" disabled={!rows.length||working} onClick={()=>predictBatch()}><BrainCircuit size={17}/>{working?'Đang phân tích...':`Dự đoán ${rows.length||0} mẫu`}</button><button className="btn btn-soft" onClick={template}><ArrowDownToLine size={17}/> CSV minh họa</button></div></Card>
+    <Card title="Tổng quan kết quả" subtitle="Thống kê các mẫu đã được dự đoán"><div className="batch-stats"><div><span>Số mẫu</span><strong>{results.length||0}</strong></div><div><span>Dự đoán lành tính</span><strong className="text-ok">{results.length-nRisk}</strong></div><div><span>Dự đoán ác tính</span><strong className="text-risk">{nRisk}</strong></div></div>{!results.length?<Empty icon={ClipboardList} title="Chưa có dự đoán" text="Chọn CSV và nhấn dự đoán để xem kết quả."/>:<button className="btn btn-primary btn-wide" onClick={save}><ArrowDownToLine size={17}/> Xuất toàn bộ kết quả CSV</button>}</Card></div>
+    {results.length>0&&<Card title="Chi tiết kết quả dự đoán" subtitle="Giá trị dự đoán không phải kết luận y khoa"><div className="table-scroll"><table><thead><tr><th>STT</th><th>Phân loại dự đoán</th><th>Xác suất ác tính</th><th>Ngưỡng</th></tr></thead><tbody>{results.map((r,i)=><tr key={i}><td>#{i+1}</td><td><span className={`class-chip ${r.prediction==='Ác tính'?'risk':''}`}>{r.prediction}</span></td><td>{formatPct(r.malignant_probability,2)}</td><td>{formatPct(r.threshold,0)}</td></tr>)}</tbody></table></div></Card>}
+    <div className="notice"><Info size={18}/> File CSV được xử lý cục bộ qua API chạy trên máy bạn; ứng dụng không lưu kết quả vào cơ sở dữ liệu. Tránh sử dụng dữ liệu nhận dạng bệnh nhân.</div>
+  </>;
+}
+function HistoryPage({ history, setHistory }) {
+  const exportHistory=()=>downloadText([csvLine(['Thời gian','Loại','Nguồn','Kết quả','Xác suất ác tính']),...history.map(h=>csvLine([h.time,h.type,h.source,h.label,h.probability??'']))].join('\r\n'),'breastcare_session_history.csv');
+  return <><SectionTitle eyebrow="SESSION / HISTORY" title="Lịch sử dự đoán" description="Các lượt thử trong phiên sử dụng hiện tại. Lịch sử sẽ mất khi tải lại website để tránh lưu trữ dữ liệu đầu vào không cần thiết." right={history.length>0&&<div className="row-actions"><IconButton icon={ArrowDownToLine} onClick={exportHistory}>Xuất CSV</IconButton><IconButton icon={Trash2} className="btn-danger" onClick={()=>setHistory([])}>Xóa lịch sử</IconButton></div>}/>
+    <Card title="Các lượt dự đoán" subtitle={`${history.length} hoạt động trong phiên này`}>{history.length===0?<Empty icon={Clock3} title="Chưa có lịch sử" text="Hãy dùng tính năng Dự đoán cá nhân hoặc Dự đoán hàng loạt. Các kết quả sẽ hiển thị ở đây."/>:<div className="table-scroll"><table><thead><tr><th>Thời gian</th><th>Loại</th><th>Nguồn</th><th>Kết quả</th><th>Xác suất ác tính</th></tr></thead><tbody>{history.map((h,i)=><tr key={i}><td>{h.time}</td><td>{h.type}</td><td>{h.source}</td><td>{h.label==='Ác tính'||h.label==='Lành tính'?<span className={`class-chip ${h.label==='Ác tính'?'risk':''}`}>{h.label}</span>:h.label}</td><td>{h.probability==null?'—':formatPct(h.probability,2)}</td></tr>)}</tbody></table></div>}</Card>
+  </>;
+}
+function AboutPage({ info }) {
+  return <><SectionTitle eyebrow="PROJECT / DOCUMENTATION" title="Giới thiệu đề tài" description="Tổng quan nội dung nghiên cứu và kiến trúc hệ thống phục vụ môn Học máy."/>
+    <div className="layout-two"><Card title="Giới thiệu" subtitle="Breast Cancer Diagnosis from Cell Nucleus Features"><p className="text-paragraph">Dự án xây dựng một hệ thống minh họa ứng dụng học máy cổ điển để phân loại mẫu khối u vú từ 30 đặc trưng của nhân tế bào. Nguồn dữ liệu là <strong>Breast Cancer Wisconsin (Diagnostic)</strong>, được tích hợp trong scikit-learn.</p><div className="about-points"><div><Check size={17}/> Bài toán phân loại nhị phân</div><div><Check size={17}/> 569 mẫu, 30 đặc trưng</div><div><Check size={17}/> Lành tính (0), ác tính (1)</div><div><Check size={17}/> Train/test 80/20, stratify, random_state=42</div></div></Card><Card title="4 thuật toán" subtitle="So sánh và tối ưu bằng GridSearchCV"><div className="algo-list">{[['01','Logistic Regression','Mô hình tuyến tính, dễ diễn giải'],['02','Support Vector Machine','Phân lớp phi tuyến với kernel RBF'],['03','k-Nearest Neighbors','Dựa trên khoảng cách giữa các mẫu'],['04','Random Forest','Tập hợp nhiều cây quyết định']].map(m=><div key={m[0]}><span>{m[0]}</span><div><strong>{m[1]}</strong><p>{m[2]}</p></div></div>)}</div></Card></div>
+    <Card title="Kiến trúc hoạt động" subtitle="Từ dữ liệu thô đến kết quả hiển thị"><div className="pipeline">{[['Dữ liệu',Database],['Tiền xử lý',SlidersHorizontal],['4 mô hình',BrainCircuit],['FastAPI',Activity],['Dashboard',LayoutDashboard]].map(([name,Icon],i)=><React.Fragment key={name}><div className="pipe-node"><Icon size={22}/><strong>{name}</strong></div>{i<4&&<ChevronRight className="pipe-arrow" size={22}/>}</React.Fragment>)}</div></Card>
+    <Card title="Giải thích khái niệm quan trọng" subtitle="Những câu hỏi giảng viên có thể hỏi"><div className="faq-grid"><div><h3>Vì sao chú trọng Recall?</h3><p>Recall của lớp ác tính đo tỷ lệ phát hiện đúng các mẫu ác tính. Dự đoán nhầm ác tính thành lành tính là False Negative cần giảm thiểu.</p></div><div><h3>Vì sao phải chuẩn hóa?</h3><p>Các đặc trưng có thang đo khác nhau. StandardScaler giúp các thuật toán nhạy với khoảng cách và tỷ lệ như SVM, k-NN hoạt động phù hợp.</p></div><div><h3>GridSearchCV là gì?</h3><p>Phương pháp tìm siêu tham số thông qua đánh giá chéo trên tập huấn luyện. Tập test không tham gia chọn tham số.</p></div><div><h3>Ngưỡng dự đoán là gì?</h3><p>Quyết định gán nhãn ác tính nếu xác suất mô hình ≥ ngưỡng đã chọn từ dự đoán out-of-fold trên dữ liệu train.</p></div></div></Card>
+    <div className="notice"><CircleAlert size={19}/> {info?.disclaimer || DISCLAIMER}</div>
+  </>;
+}
+function App(){
+  const [page,setPage]=useState('dashboard');
+  const [info,setInfo]=useState(null),[dataset,setDataset]=useState(null),[results,setResults]=useState(null),[examples,setExamples]=useState(null);
+  const [online,setOnline]=useState(false),[appError,setAppError]=useState('');
+  const [history,setHistory]=useState([]);
+  const [menuOpen,setMenuOpen]=useState(false);
+  const [currentFeature,setCurrentFeature]=useState('mean radius');
+  const [distribution,setDistribution]=useState(null),[distributionError,setDistributionError]=useState('');
+  const navigate=(id)=>{setPage(id);setMenuOpen(false);window.scrollTo({top:0,behavior:'smooth'});};
+  const load=()=>{setAppError('');Promise.all([api('/api/info'),api('/api/dataset'),api('/api/results'),api('/api/examples'),api('/api/health')]).then(([i,d,r,e])=>{setInfo(i);setDataset(d);setResults(r);setExamples(e);setOnline(true);setCurrentFeature(i.features.includes('mean radius')?'mean radius':i.features[0]);}).catch(e=>{setOnline(false);setAppError(`Không kết nối được backend: ${e.message}. Hãy chạy: python -m uvicorn backend.main:app --reload`);});};
+  useEffect(()=>{load();},[]);
+  useEffect(()=>{if(!online)return;let cancelled=false;api(`/api/distribution?feature=${encodeURIComponent(currentFeature)}`).then(d=>{if(!cancelled){setDistribution(d);setDistributionError('');}}).catch(e=>{if(!cancelled)setDistributionError(e.message)});return()=>{cancelled=true}},[currentFeature,online]);
+  const addRecord=record=>setHistory(prev=>[record,...prev].slice(0,50));
+  const pageNames={dashboard:'Tổng quan',dataset:'Khám phá dữ liệu',models:'So sánh mô hình',predict:'Dự đoán cá nhân',batch:'Dự đoán hàng loạt',history:'Lịch sử phiên',about:'Giới thiệu'};
+  return <div className="app-shell">
+    <div className={`mobile-mask ${menuOpen?'visible':''}`} onClick={()=>setMenuOpen(false)}/>
+    <aside className={`sidebar ${menuOpen?'mobile-open':''}`}>
+      <div className="brand"><div className="brand-mark"><HeartPulse size={24}/></div><div><strong>Chẩn đoán <span>ung thư vú</span></strong>
+<small>HỆ THỐNG HỖ TRỢ CHẨN ĐOÁN</small></div><button className="mobile-close" onClick={()=>setMenuOpen(false)}><X size={20}/></button></div>
+      <div className="sidebar-label">KHÔNG GIAN LÀM VIỆC</div>
+      <nav>{PAGES.map(item=>{const Icon=item.icon;return <button key={item.id} onClick={()=>navigate(item.id)} className={`nav-item ${page===item.id?'active':''}`}><Icon size={19}/><span>{item.name}</span>{page===item.id&&<span className="nav-indicator"/>}</button>})}</nav>
+      <div className="sidebar-bottom"><div className="sidebar-promo"><div className="promo-icon"><FlaskConical size={19}/></div><strong>Machine Learning Lab</strong><p>4 thuật toán · 30 đặc trưng · 1 hệ thống thực nghiệm.</p></div><div className="sidebar-edition"><span className="edition-dot"/> DEMO VERSION 2.1</div></div>
+    </aside>
+    <div className="workspace"><header className="topbar"><div className="topbar-left"><button className="mobile-menu" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><span className="breadcrumb">Workspace</span><ChevronRight size={14}/><strong>{pageNames[page]}</strong></div><div className="topbar-right"><Status online={online}/><span className="topbar-divider"/><span className="avatar"><Stethoscope size={19}/></span></div></header>
+      <main className="main-content">{appError&&<div className="notice error app-error"><CircleAlert size={19}/><span>{appError}</span><IconButton icon={RotateCcw} onClick={load}>Thử lại</IconButton></div>}
+        {page==='dashboard'&&<Dashboard info={info} dataset={dataset} results={results} onNavigate={navigate}/>}
+        {page==='dataset'&&<DatasetPage dataset={dataset} info={info} distribution={distribution} distributionError={distributionError} currentFeature={currentFeature} setCurrentFeature={setCurrentFeature}/>}
+        {page==='models'&&<ModelsPage results={results} info={info}/>}
+        {page==='predict'&&<PredictPage info={info} examples={examples} dataset={dataset} onRecord={addRecord}/>}
+        {page==='batch'&&<BatchPage info={info} examples={examples} onRecord={addRecord}/>}
+        {page==='history'&&<HistoryPage history={history} setHistory={setHistory}/>}
+        {page==='about'&&<AboutPage info={info}/>}
+      </main><Footer/>
+    </div>
+  </div>;
+}
+createRoot(document.getElementById('root')).render(<App/>);
