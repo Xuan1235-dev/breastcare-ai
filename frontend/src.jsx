@@ -296,7 +296,28 @@ function App(){
   const [page,setPage]=useState('dashboard');
   const [info,setInfo]=useState(null),[dataset,setDataset]=useState(null),[results,setResults]=useState(null),[examples,setExamples]=useState(null);
   const [online,setOnline]=useState(false),[appError,setAppError]=useState('');
-  const [history,setHistory]=useState([]);
+  
+const [history, setHistory] = useState(() => {
+  try {
+    const saved = localStorage.getItem('breastcare_history');
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, 50) : [];
+  } catch {
+    return [];
+  }
+});
+
+useEffect(() => {
+  try {
+    localStorage.setItem(
+      'breastcare_history',
+      JSON.stringify(history)
+    );
+  } catch (error) {
+    console.error('Khong luu duoc lich su:', error);
+  }
+}, [history]);
+
   const [menuOpen,setMenuOpen]=useState(false);
   const [currentFeature,setCurrentFeature]=useState('mean radius');
   const [distribution,setDistribution]=useState(null),[distributionError,setDistributionError]=useState('');
