@@ -22,7 +22,6 @@ const PAGES = [
   { id: 'predict', name: 'Dự đoán cá nhân', icon: Microscope },
   { id: 'batch', name: 'Dự đoán hàng loạt', icon: Layers3 },
   { id: 'history', name: 'Lịch sử phiên', icon: Clock3 },
-  { id: 'about', name: 'Giới thiệu đề tài', icon: FileText },
 ];
 const formatPct = (n, digits = 1) => n == null || !Number.isFinite(Number(n)) ? '—' : `${(Number(n) * 100).toFixed(digits)}%`;
 const formatNum = n => n == null || !Number.isFinite(Number(n)) ? '—' : Number(n).toLocaleString('vi-VN', { maximumFractionDigits: Math.abs(Number(n)) < 0.01 ? 7 : Math.abs(Number(n)) < 1 ? 5 : 3 });
@@ -306,7 +305,7 @@ function App(){
   useEffect(()=>{load();},[]);
   useEffect(()=>{if(!online)return;let cancelled=false;api(`/api/distribution?feature=${encodeURIComponent(currentFeature)}`).then(d=>{if(!cancelled){setDistribution(d);setDistributionError('');}}).catch(e=>{if(!cancelled)setDistributionError(e.message)});return()=>{cancelled=true}},[currentFeature,online]);
   const addRecord=record=>setHistory(prev=>[record,...prev].slice(0,50));
-  const pageNames={dashboard:'Tổng quan',dataset:'Khám phá dữ liệu',models:'So sánh mô hình',predict:'Dự đoán cá nhân',batch:'Dự đoán hàng loạt',history:'Lịch sử phiên',about:'Giới thiệu'};
+  const pageNames={dashboard:'Tổng quan',dataset:'Khám phá dữ liệu',models:'So sánh mô hình',predict:'Dự đoán cá nhân',batch:'Dự đoán hàng loạt',history:'Lịch sử phiên'};
   return <div className="app-shell">
     <div className={`mobile-mask ${menuOpen?'visible':''}`} onClick={()=>setMenuOpen(false)}/>
     <aside className={`sidebar ${menuOpen?'mobile-open':''}`}>
@@ -314,7 +313,7 @@ function App(){
 <small>HỆ THỐNG HỖ TRỢ CHẨN ĐOÁN</small></div><button className="mobile-close" onClick={()=>setMenuOpen(false)}><X size={20}/></button></div>
       <div className="sidebar-label">KHÔNG GIAN LÀM VIỆC</div>
       <nav>{PAGES.map(item=>{const Icon=item.icon;return <button key={item.id} onClick={()=>navigate(item.id)} className={`nav-item ${page===item.id?'active':''}`}><Icon size={19}/><span>{item.name}</span>{page===item.id&&<span className="nav-indicator"/>}</button>})}</nav>
-      <div className="sidebar-bottom"><div className="sidebar-promo"><div className="promo-icon"><FlaskConical size={19}/></div><strong>Machine Learning Lab</strong><p>4 thuật toán · 30 đặc trưng · 1 hệ thống thực nghiệm.</p></div><div className="sidebar-edition"><span className="edition-dot"/> DEMO VERSION 2.1</div></div>
+      <div className="sidebar-bottom"><div className="sidebar-edition"><span className="edition-dot"/> DEMO VERSION 2.1</div></div>
     </aside>
     <div className="workspace"><header className="topbar"><div className="topbar-left"><button className="mobile-menu" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><span className="breadcrumb">Workspace</span><ChevronRight size={14}/><strong>{pageNames[page]}</strong></div><div className="topbar-right"><Status online={online}/><span className="topbar-divider"/><span className="avatar"><Stethoscope size={19}/></span></div></header>
       <main className="main-content">{appError&&<div className="notice error app-error"><CircleAlert size={19}/><span>{appError}</span><IconButton icon={RotateCcw} onClick={load}>Thử lại</IconButton></div>}
@@ -324,7 +323,6 @@ function App(){
         {page==='predict'&&<PredictPage info={info} examples={examples} dataset={dataset} onRecord={addRecord}/>}
         {page==='batch'&&<BatchPage info={info} examples={examples} onRecord={addRecord}/>}
         {page==='history'&&<HistoryPage history={history} setHistory={setHistory}/>}
-        {page==='about'&&<AboutPage info={info}/>}
       </main><Footer/>
     </div>
   </div>;
