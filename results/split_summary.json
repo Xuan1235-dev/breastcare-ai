@@ -1,0 +1,62 @@
+{
+  "split_sizes": {
+    "train": 398,
+    "validation": 85,
+    "test": 86,
+    "total": 569,
+    "seed": 42,
+    "train_malignant": 148,
+    "validation_malignant": 32,
+    "test_malignant": 32
+  },
+  "selected_model": "SVM RBF",
+  "selected_threshold": 0.5,
+  "validation_metrics": {
+    "Accuracy": 0.9764705882352941,
+    "Precision": 1.0,
+    "Recall": 0.9375,
+    "F1": 0.967741935483871,
+    "ROC_AUC": 0.9941037735849056,
+    "False_Negatives": 2,
+    "False_Positives": 0,
+    "True_Positives": 30,
+    "True_Negatives": 53,
+    "Error_Rate": 0.023529411764705882,
+    "False_Negative_Rate": 0.0625,
+    "Specificity": 1.0,
+    "Predicted_Malignant": 30,
+    "Predicted_Benign": 55
+  },
+  "final_test_metrics": {
+    "Accuracy": 0.9651162790697675,
+    "Precision": 0.967741935483871,
+    "Recall": 0.9375,
+    "F1": 0.9523809523809523,
+    "ROC_AUC": 0.9988425925925927,
+    "False_Negatives": 2,
+    "False_Positives": 1,
+    "True_Positives": 30,
+    "True_Negatives": 53,
+    "Error_Rate": 0.03488372093023256,
+    "False_Negative_Rate": 0.0625,
+    "Specificity": 0.9814814814814815,
+    "Predicted_Malignant": 31,
+    "Predicted_Benign": 55
+  },
+  "train_metrics": {
+    "Accuracy": 0.9899497487437185,
+    "Precision": 1.0,
+    "Recall": 0.972972972972973,
+    "F1": 0.9863013698630136,
+    "ROC_AUC": 1.0,
+    "False_Negatives": 4,
+    "False_Positives": 0,
+    "True_Positives": 144,
+    "True_Negatives": 250,
+    "Error_Rate": 0.010050251256281407,
+    "False_Negative_Rate": 0.02702702702702703,
+    "Specificity": 1.0,
+    "Predicted_Malignant": 144,
+    "Predicted_Benign": 254
+  }
+}

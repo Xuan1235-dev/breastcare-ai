@@ -1,0 +1,136 @@
+"""Run: python update_breastcare_ui.py [project_directory]"""
+from pathlib import Path
+from datetime import datetime
+import re
+import shutil
+import sys
+import os
+
+CSS = '''/* BreastCare: readable Vietnamese typography */
+:root { --text: #14213d; --muted: #14213d; --text-muted: #14213d; --text-secondary: #14213d; }
+body, button, input, select, textarea {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
+  font-size: 16px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+body { color: #14213d !important; }
+.app-shell { font-size: 16px; }
+.app-shell :is(p, small, label, td, th, input, summary) { font-size: 16px !important; }
+.app-shell :is(p, small, label, td, th, input) { color: #14213d !important; }
+.app-shell :is(.brand-copy small, .nav-caption, .sidebar-note, .edition,
+ .breadcrumb, .breadcrumb span, .breadcrumb b, .sample-note, .feature-title,
+ .feature-title span, .feature-value-row, .form-footer, .count-pill,
+ .batch-submit, .table-caption, .history-meta, .expand-hint,
+ .result-kicker, .result-meta, .probability-label, .page-footer,
+ .config-hint, .privacy-hint, .empty-result, .file-summary) {
+  color: #14213d !important; font-size: 16px !important; opacity: 1;
+}
+.app-shell :is(.feature-title label, .nav-item, .btn, .notification-heading) {
+  font-size: 16px !important; font-weight: 600; line-height: 1.5;
+}
+.app-shell :is(.btn, .nav-item) { min-height: 44px; white-space: normal; }
+.app-shell :is(.btn-light, .text-button) { color: #173b70 !important; }
+.app-shell :is(.btn-primary, .btn-telegram, .btn-email) { color: #fff !important; }
+.app-shell :is(.btn-primary, .btn-telegram, .btn-email) * { color: inherit !important; }
+.app-shell button:disabled { opacity: 1; filter: none; cursor: not-allowed; border-style: dashed; }
+.app-shell :is(input, textarea)::placeholder { color: #213c61 !important; opacity: 1; }
+.app-shell h1 { font-size: clamp(28px, 3vw, 38px) !important; line-height: 1.25; font-weight: 700; color: #14213d; }
+.app-shell h2 { font-size: 22px; line-height: 1.4; }
+.app-shell h3 { font-size: 19px; line-height: 1.4; }
+.app-shell .eyebrow { color: #174b91 !important; font-weight: 700; }
+.app-shell :is(.text-danger, .result-badge.malignant) { color: #a61132 !important; }
+.app-shell :is(.text-success, .result-badge.benign) { color: #08623f !important; }
+.app-shell .feature-title { gap: 8px; align-items: flex-start; }
+.app-shell .feature-title label { overflow-wrap: anywhere; }
+.app-shell .feature-title span { flex-shrink: 0; }
+.app-shell .feature-value-row { flex-wrap: wrap; gap: 8px; }
+.app-shell .feature-value-row input { min-height: 42px; max-width: 100%; }
+.app-shell :is(.quick-actions, .batch-toolbar, .form-footer, .batch-submit, .heading-actions) { flex-wrap: wrap; gap: 12px; }
+.app-shell .table-scroll { overflow-x: auto; }
+.app-shell th, .app-shell td { padding: 12px 14px; }
+.app-shell .page-footer { flex-wrap: wrap; gap: 10px; line-height: 1.6; }
+.app-shell :is(button, input, summary):focus-visible { outline: 3px solid #165dcc; outline-offset: 3px; }
+@media (max-width: 1100px) {
+ .app-shell .predict-layout { grid-template-columns: minmax(0, 1fr); }
+ .app-shell .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+ .app-shell .feature-grid { grid-template-columns: minmax(0, 1fr); }
+ .app-shell .email-send-row { flex-wrap: wrap; }
+ .app-shell .email-send-row input { min-width: 0; width: 100%; }
+}
+'''
+
+def locate(root):
+    candidates = []
+    excluded = {'node_modules', '.venv', 'venv', '.git', 'dist', 'build', '__pycache__'}
+    for directory, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in excluded and not d.startswith('breastcare_backup_')]
+        for name in files:
+            if not name.endswith(('.jsx', '.tsx')):
+                continue
+            path = Path(directory) / name
+            text = path.read_text(encoding='utf-8-sig')
+            if 'function PredictionResult(' in text and 'breastcare_session_id' in text:
+                candidates.append(path)
+    if len(candidates) != 1:
+        raise ValueError('Can tim dung 1 file giao dien BreastCare; tim thay %s. Hay truyen duong dan thu muc frontend chinh xac.' % len(candidates))
+    return candidates[0]
+
+def transform(text):
+    text, removed = re.subn(r'\s*\{info\?\.train_metrics && <details\b.*?</details>\}', '', text, flags=re.S)
+    text = text.replace('<th>Ngưỡng</th>', '')
+    text = text.replace('<td>{percent(item.threshold)}</td>', '')
+    text = text.replace('<span>Ngưỡng: <b>{percent(item.threshold)}</b></span>', '')
+    text = text.replace('<div className="result-meta"><span>Ngưỡng phân loại</span><b>{percent(result.threshold)}</b></div>', '')
+    text = text.replace("'Xac suat ac tinh', 'Nguong', 'Mo hinh'", "'Xac suat ac tinh', 'Mo hinh'")
+    text = text.replace('item.malignant_probability, item.threshold, item.model', 'item.malignant_probability, item.model')
+    if re.search(r'\bthreshold\b|Ngưỡng|Đánh giá mô hình', text):
+        raise ValueError('Ma nguon khac ban da kiem tra: van con phan nguong. Chua thay doi file nao.')
+    marker = "import './readability.css';"
+    if marker not in text:
+        base = "import './style.css';"
+        if base not in text:
+            raise ValueError('Khong tim thay import style.css. Chua thay doi file nao.')
+        text = text.replace(base, base + '\n' + marker, 1)
+    return text
+
+def main():
+    root = Path(sys.argv[1] if len(sys.argv) > 1 else '.').resolve()
+    if not root.is_dir():
+        raise ValueError('Thu muc du an khong ton tai.')
+    source = locate(root)
+    original = source.read_text(encoding='utf-8-sig')
+    updated = transform(original)
+    css = source.with_name('readability.css')
+    if updated == original and css.exists() and css.read_text(encoding='utf-8') == CSS:
+        print('Giao dien da duoc cap nhat. Khong can thay doi them.')
+        return
+    backup = source.parent / ('breastcare_backup_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f'))
+    backup.mkdir()
+    shutil.copy2(source, backup / source.name)
+    had_css = css.exists()
+    if had_css:
+        shutil.copy2(css, backup / css.name)
+    try:
+        css.write_text(CSS, encoding='utf-8')
+        source.write_text(updated, encoding='utf-8')
+    except Exception:
+        shutil.copy2(backup / source.name, source)
+        if had_css:
+            shutil.copy2(backup / css.name, css)
+        elif css.exists():
+            css.unlink()
+        raise
+    print('DA CAP NHAT: ' + str(source))
+    print('BAN SAO LUU: ' + str(backup))
+    print('Font de doc, chu toi mau, co chu lon hon; da bo khoi danh gia va hien thi nguong.')
+    print('Trong thu muc chua package.json, chay: npm run dev')
+    print('Backend van can duoc chay nhu truoc. Khong thay doi mo hinh hoac API.')
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as error:
+        print('LOI: ' + str(error), file=sys.stderr)
+        sys.exit(1)

@@ -1,0 +1,50 @@
+[
+  {
+    "path": "frontend/src.jsx",
+    "existed": true
+  },
+  {
+    "path": "backend/main.py",
+    "existed": true
+  },
+  {
+    "path": "frontend/AgentPanel.jsx",
+    "existed": true
+  },
+  {
+    "path": "frontend/agent-panel.css",
+    "existed": false
+  },
+  {
+    "path": "breastcare_agent/__init__.py",
+    "existed": false
+  },
+  {
+    "path": "breastcare_agent/api.py",
+    "existed": false
+  },
+  {
+    "path": "breastcare_agent/retrieval.py",
+    "existed": false
+  },
+  {
+    "path": "breastcare_agent/ingest.py",
+    "existed": false
+  },
+  {
+    "path": "requirements-agent.txt",
+    "existed": false
+  },
+  {
+    "path": "AGENT_README.md",
+    "existed": false
+  },
+  {
+    "path": "pdf_manifest.example.json",
+    "existed": false
+  },
+  {
+    "path": "test_breastcare_agent.py",
+    "existed": false
+  }
+]

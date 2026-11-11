@@ -1,0 +1,20 @@
+[
+  {
+    "id": "uci-wdbc",
+    "title": "UCI — Breast Cancer Wisconsin (Diagnostic)",
+    "url": "https://archive.ics.uci.edu/dataset/17/breast-cancer-wisconsin-diagnostic",
+    "section": "Dataset Information / Additional Variable Information",
+    "reviewed_on": "2026-11-12",
+    "kind": "Bản tóm tắt tiếng Việt, không phải trích nguyên văn",
+    "text": "WDBC gồm các đặc trưng nhân tế bào từ ảnh số hóa mẫu chọc hút kim nhỏ (FNA). Radius mô tả khoảng cách từ tâm đến đường viền nhân; không phải đường kính khối u lâm sàng tính bằng cm. Texture là độ lệch chuẩn mức xám. Concavity mô tả mức độ lõm của đường viền; concave points mô tả số phần lõm. Perimeter và area mô tả chu vi và diện tích nhân. Đây là dữ liệu phân loại lành tính hoặc ác tính, không cung cấp giai đoạn hay thụ thể ER, PR, HER2. Các chỉ số hình thái không tự xác định phác đồ điều trị."
+  },
+  {
+    "id": "nci-pdq",
+    "title": "NCI — Breast Cancer Treatment (PDQ), Health Professional Version",
+    "url": "https://www.cancer.gov/types/breast/hp/breast-treatment-pdq",
+    "section": "Prognostic and Predictive Factors / Stage Information",
+    "reviewed_on": "2026-11-12",
+    "kind": "Bản tóm tắt tiếng Việt, không phải phác đồ đầy đủ",
+    "text": "Điều trị ung thư vú có thể phối hợp phẫu thuật, xạ trị, hóa trị và nội tiết. Lựa chọn phụ thuộc giai đoạn, độ mô học, loại mô học, ER, PR, HER2, tình trạng mãn kinh và sức khỏe. Kích thước u và tình trạng hạch là những yếu tố cần xem xét cùng các dấu ấn sinh học. ER, PR và HER2 có ý nghĩa tiên lượng và dự đoán đáp ứng với điều trị nội tiết hoặc điều trị hướng HER2. Chỉ số hình thái WDBC và xác suất phân loại của mô hình không cung cấp đủ các thông tin này để chọn phác đồ cá thể hóa."
+  }
+]

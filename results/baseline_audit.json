@@ -1,0 +1,44 @@
+{
+  "train": {
+    "confusion_matrix": [
+      [
+        250,
+        0
+      ],
+      [
+        4,
+        144
+      ]
+    ],
+    "probability_min": 3.09829150101254e-05,
+    "probability_max": 0.99999999967684
+  },
+  "validation": {
+    "confusion_matrix": [
+      [
+        53,
+        0
+      ],
+      [
+        2,
+        30
+      ]
+    ],
+    "probability_min": 7.868777404174379e-05,
+    "probability_max": 0.9999999973616882
+  },
+  "test": {
+    "confusion_matrix": [
+      [
+        54,
+        0
+      ],
+      [
+        2,
+        30
+      ]
+    ],
+    "probability_min": 0.0001360833539795527,
+    "probability_max": 0.9999999986456016
+  }
+}
