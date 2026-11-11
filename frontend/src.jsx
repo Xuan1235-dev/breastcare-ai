@@ -21,7 +21,7 @@ import './readability.css';
 
 
 
-const API = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 const DISCLAIMER = 'Kết quả chỉ phục vụ học tập và nghiên cứu, không thay thế kết luận chẩn đoán của bác sĩ.';
 
